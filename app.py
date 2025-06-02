@@ -5,14 +5,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder
 from sklearn.base import BaseEstimator, TransformerMixin
-from flask import Flask, render_template, request, jsonify, session # Removida duplicata de import
+from flask import Flask, render_template, request, jsonify, session
 import os
 import random
 import re
 import datetime
-from produto_utils import identificar_produto_por_texto # Removida duplicata de import
-from produto_utils import classify_text # Importado explicitamente se for de produto_utils
-# Se classify_text não estiver em produto_utils, defina-o ou importe de onde estiver
+from produto_utils import identificar_produto_por_texto
+from produto_utils import classify_text # classify_text deve estar em produto_utils
 
 MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
 INTENTS_FILE = "intents.json"
@@ -20,8 +19,7 @@ USERS_FILE = "users.json"
 ORDERS_FILE = "orders.json"
 MENU_FILE = "menu.json"
 
-# CORREÇÃO: Mover a definição da função remover_acentos para antes do seu primeiro uso
-# Existem duas definições de remover_acentos no código original. Usarei a segunda que parece mais completa com unicodedata.
+# Definição da função remover_acentos para antes do seu primeiro uso
 def remover_acentos(texto):
     """Remove acentos e caracteres especiais de uma string."""
     import unicodedata
@@ -33,7 +31,7 @@ with open(INTENTS_FILE, encoding="utf-8") as f:
     intents = intents_data["intents"]
     fallback = intents_data["fallback"]
 
-# CORREÇÃO: Mover a definição da função load_menu para antes do seu primeiro uso
+# Definição da função load_menu para antes do seu primeiro uso
 def load_menu():
     """Carrega os dados do menu a partir do arquivo JSON."""
     try:
@@ -89,10 +87,6 @@ app = Flask(__name__)
 conversations = {}
 app.secret_key = 'fast_chatbot' # Chave aleatória e segura para produção
 
-
-# A segunda definição de MENU_FILE e remover_acentos foram removidas pois já estavam definidas.
-# A segunda definição de load_menu e menu_data também.
-
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -105,7 +99,6 @@ def mensagem_endpoint():
     if not input_usuario:
         return jsonify({"resposta": "Por favor, envie uma mensagem válida."})
 
-    # Supondo que menu_data já está carregado globalmente e corretamente
     produto_encontrado = identificar_produto_por_texto(input_usuario, menu_data)
 
     if produto_encontrado:
@@ -141,8 +134,8 @@ MENU_OPCOES = {
     "brownie": "Brownie",
     "mousse": "Mousse de Chocolate",
     "sorvete": "Sorvete",
-    "calabresa": "pizza calabresa", # CORREÇÃO: Nome deve ser consistente com menu.json para preços
-    "marguerita": "pizza marguerita", # CORREÇÃO: Nome deve ser consistente com menu.json para preços
+    "calabresa": "pizza calabresa", # Nome deve ser consistente com menu.json para preços
+    "marguerita": "pizza marguerita", # Nome deve ser consistente com menu.json para preços
     "frango com catupiry": "pizza frango com Catupiry", # CORREÇÃO
     "portuguesa": "pizza portuguesa", # CORREÇÃO
     "pepperoni": "pizza pepperoni", # CORREÇÃO
@@ -202,12 +195,10 @@ def append_order(cpf, new_order_item): # Modificado para adicionar um item de pe
         orders[cpf] = [] # Garante que é uma lista
     
     # Verifica se o item já existe para incrementar a quantidade
-    # Esta lógica deveria estar em combinar_itens_pedido ou adicionar_item_ao_pedido
     # append_order deve apenas salvar o estado atual do pedido do contexto
-    # Para simplificar, vamos assumir que new_order_item é o pedido completo (lista de dicts)
+    # new_order_item é o pedido completo (lista de dicts)
     orders[cpf] = new_order_item # Salva/sobrescreve o pedido atual do usuário
     save_orders(orders)
-
 
 def predict_intent(message):
     try:
@@ -249,11 +240,10 @@ def parse_order(message):
                 break
             # Verifica se item_base contém um alias mais longo
             if key_norm in item_base: # Ex: "pizza calabresa" em "quero uma pizza calabresa"
-                 # Tenta ser mais específico, se "pizza calabresa" está em MENU_OPCOES, use.
+                 # Tenta ser mais específico, se "pizza calabresa" está em MENU_OPCOES.
                 if item_base.startswith(key_norm) or item_base.endswith(key_norm) or key_norm == item_base:
                     item_mapped = val_menu
                     break
-
 
         if item_mapped:
             items.append({"item": item_mapped, "quantidade": quant})
@@ -271,7 +261,6 @@ def parse_order(message):
                 items.append({"item": val_menu, "quantidade": 1})
                 break
     return items
-
 
 def combinar_itens_pedido(pedido):
     combinados = {}
@@ -310,7 +299,6 @@ def remover_item_do_pedido(pedido, item_nome, quantidade=None):
                 return removidos # Retorna a quantidade especificada que foi removida
     return removidos
 
-
 def visualizar_pedido(pedido_atual): # Renomeado para evitar conflito
     if not pedido_atual:
         return "Seu carrinho está vazio."
@@ -327,15 +315,13 @@ def visualizar_pedido(pedido_atual): # Renomeado para evitar conflito
         chave_preco = ""
         for item_menu_json in menu_data:
             # Compara o valor de MENU_OPCOES (nome_item) com o item em menu.json
-            # Isso pode ser complexo se os nomes não forem 1 para 1 ou se MENU_OPCOES mapeia para um nome diferente do "item" em menu.json
-            # Para simplificar, vamos assumir que o nome_item (valor de MENU_OPCOES) é o que está em menu.json após normalização
+            # O nome_item (valor de MENU_OPCOES) é o que está em menu.json
             if remover_acentos(item_menu_json["item"].lower()) == remover_acentos(nome_item.lower()):
                  chave_preco = remover_acentos(item_menu_json["item"].lower())
                  break
         
         if not chave_preco: # Fallback se não encontrou mapeamento direto
             chave_preco = remover_acentos(nome_item.lower())
-
 
         preco_unitario = menu_prices.get(chave_preco)
 
@@ -397,7 +383,7 @@ def handle_menu_request():
     return jsonify({"response": menu_str})
 
 
-# CORREÇÃO: adicionar_item_ao_pedido não deve retornar jsonify.
+# adicionar_item_ao_pedido não deve retornar jsonify.
 # Ela é chamada dentro de handle_order, que já retorna jsonify.
 def adicionar_item_ao_pedido(pedido_lista, item_nome, quantidade): # Renomeado pedido para pedido_lista
     """Adiciona um item ao pedido ou atualiza a quantidade se já existir.
@@ -424,7 +410,6 @@ def handle_order(message_param, contexto_param): # Renomeados para evitar confli
         # Poderia retornar um status ou uma flag para a função `chat`
         return {"status": "falha", "mensagem": "Não entendi o que você gostaria de pedir. Pode repetir?"}
 
-
     if "pedido" not in contexto_param:
         contexto_param["pedido"] = []
 
@@ -443,7 +428,7 @@ def handle_order(message_param, contexto_param): # Renomeados para evitar confli
 @app.route("/chat", methods=["POST"])
 def chat():
     session_id = request.remote_addr
-    # CORREÇÃO: A variável 'message' será definida dentro dos blocos if/elif de estado
+    # A variável 'message' será definida dentro dos blocos if/elif de estado
     # message_input = request.json.get("message", "").strip().lower()
 
     if session_id not in conversations:
